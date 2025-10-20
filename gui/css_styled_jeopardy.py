@@ -874,38 +874,158 @@ class AuthenticJeopardyGUI(QMainWindow):
             QMessageBox.information(self, "Round Switch", "Cannot switch rounds during Final Jeopardy.")
     
     def show_final_jeopardy(self):
-        """Show Final Jeopardy round"""
+        """Show Final Jeopardy round: prompt wager, show clue, accept answer, update score."""
         self.current_round = 'final'
-        
+
         # Clear current display
         for i in reversed(range(self.display_layout.count())):
             widget = self.display_layout.itemAt(i).widget()
             if widget:
                 widget.setParent(None)
                 widget.deleteLater()
-        
-        # Create Final Jeopardy widget
+
+        # Stop board music during Final Jeopardy
+        try:
+            self.stop_board_music()
+        except Exception:
+            pass
+
+        # Fetch Final Jeopardy clue from DB for current game
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT cl.id, cl.question, cl.answer, c.name
+                FROM rounds r
+                JOIN categories c ON c.round_id = r.id
+                JOIN clues cl ON cl.category_id = c.id
+                WHERE r.show_id = ? AND r.name = 'final'
+                LIMIT 1
+            """, (self.current_game_id,))
+            row = cur.fetchone()
+            conn.close()
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to load Final Jeopardy: {e}")
+            return
+
+        if not row:
+            QMessageBox.information(self, "Final Jeopardy", "No Final Jeopardy clue available for this show.")
+            # Return to board
+            self.show_board()
+            return
+
+        fid, final_question, final_answer, final_category = row
+
+        # Ask the player for their wager first
+        wager_dialog = QDialog(self)
+        wager_dialog.setWindowTitle("Final Jeopardy Wager")
+        wager_dialog.setModal(True)
+        wager_dialog.resize(480, 220)
+
+        layout = QVBoxLayout(wager_dialog)
+        info = QLabel(f"Category: {final_category}")
+        info.setFont(QFont("Arial", 20, QFont.Bold))
+        info.setAlignment(Qt.AlignCenter)
+        info.setStyleSheet(f"color: {self.colors['money_gold']}; padding: 10px;")
+        layout.addWidget(info)
+
+        min_wager = 5
+        max_wager = max(self.score if self.score > 0 else 10000, min_wager)
+        wager_label = QLabel(f"Enter your wager (minimum ${min_wager}, maximum ${max_wager}):")
+        wager_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(wager_label)
+
+        wager_input = QSpinBox()
+        wager_input.setMinimum(min_wager)
+        wager_input.setMaximum(max_wager)
+        default_wager = min(max(min_wager, self.score), max_wager) if self.score > 0 else min_wager
+        wager_input.setValue(default_wager)
+        wager_input.setAlignment(Qt.AlignCenter)
+        layout.addWidget(wager_input)
+
+        btn_layout = QHBoxLayout()
+        ok_btn = QPushButton("Continue")
+        ok_btn.clicked.connect(wager_dialog.accept)
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.clicked.connect(wager_dialog.reject)
+        btn_layout.addWidget(ok_btn)
+        btn_layout.addWidget(cancel_btn)
+        layout.addLayout(btn_layout)
+
+        if wager_dialog.exec() != QDialog.Accepted:
+            # Player cancelled, go back to board
+            self.show_board()
+            return
+
+        wager_amount = wager_input.value()
+
+        # Now show the Final Jeopardy clue and an answer box
         final_widget = QWidget()
         final_layout = QVBoxLayout(final_widget)
         final_layout.setAlignment(Qt.AlignCenter)
-        
-        title_label = QLabel("FINAL JEOPARDY!")
-        title_label.setFont(QFont("Arial Black", 48, QFont.Bold))
-        title_label.setAlignment(Qt.AlignCenter)
-        title_label.setStyleSheet(f"""
-            color: {self.colors['money_gold']};
-            padding: 50px;
-            font-weight: bold;
-        """)
-        final_layout.addWidget(title_label)
-        
-        info_label = QLabel("Final Jeopardy implementation coming soon!\n\nUse 'New Game' to start a fresh game.")
-        info_label.setFont(QFont("Arial", 20))
-        info_label.setAlignment(Qt.AlignCenter)
-        info_label.setStyleSheet(f"color: {self.colors['text_white']}; padding: 30px;")
-        final_layout.addWidget(info_label)
-        
+
+        title = QLabel("FINAL JEOPARDY!")
+        title.setFont(QFont("Arial Black", 36, QFont.Bold))
+        title.setAlignment(Qt.AlignCenter)
+        title.setStyleSheet(f"color: {self.colors['money_gold']}; padding: 10px;")
+        final_layout.addWidget(title)
+
+        cat_label = QLabel(final_category.upper())
+        cat_label.setFont(QFont("Arial", 22, QFont.Bold))
+        cat_label.setAlignment(Qt.AlignCenter)
+        cat_label.setStyleSheet(f"color: {self.colors['text_white']}; padding: 8px;")
+        final_layout.addWidget(cat_label)
+
+        wager_shown = QLabel(f"Your wager: ${wager_amount}")
+        wager_shown.setFont(QFont("Arial", 18, QFont.Bold))
+        wager_shown.setAlignment(Qt.AlignCenter)
+        wager_shown.setStyleSheet(f"color: {self.colors['money_gold']}; padding: 6px;")
+        final_layout.addWidget(wager_shown)
+
+        # Show the clue text (large)
+        q_text = final_question.strip() if final_question else "Final clue not available"
+        q_label = QLabel(q_text.upper())
+        q_label.setFont(QFont("Arial", 20))
+        q_label.setWordWrap(True)
+        q_label.setAlignment(Qt.AlignCenter)
+        q_label.setStyleSheet(f"color: {self.colors['text_white']}; background: rgba(0,0,0,0.3); padding: 20px; border-radius: 10px;")
+        final_layout.addWidget(q_label, 1)
+
+        answer_prompt = QLabel("Write your response (in the form of a question):")
+        answer_prompt.setFont(QFont("Arial", 16))
+        answer_prompt.setAlignment(Qt.AlignCenter)
+        final_layout.addWidget(answer_prompt)
+
+        final_answer_input = QLineEdit()
+        final_answer_input.setFont(QFont("Arial", 16))
+        final_answer_input.setAlignment(Qt.AlignCenter)
+        final_answer_input.setFixedWidth(800)
+        final_layout.addWidget(final_answer_input)
+
+        submit_btn = QPushButton("Submit Final Answer")
+        submit_btn.setFont(QFont("Arial", 16, QFont.Bold))
+        submit_btn.setStyleSheet("background: #0066cc; color: white; padding: 10px;")
+
+        def submit_final():
+            user_answer = final_answer_input.text().strip()
+            correct = self.is_correct_answer(user_answer, final_answer)
+            if correct:
+                self.score += wager_amount
+                msg = f"✅ CORRECT! You earned ${wager_amount}!"
+            else:
+                self.score -= wager_amount
+                msg = f"❌ INCORRECT! The correct answer was:\n\n{final_answer}\n\nYou lost ${wager_amount}!"
+            self.update_score()
+            QMessageBox.information(self, "Final Jeopardy Result", msg)
+            # After final, return to board (or end)
+            self.show_board()
+
+        submit_btn.clicked.connect(submit_final)
+        final_layout.addWidget(submit_btn)
+
         self.display_layout.addWidget(final_widget)
+        # Focus on input
+        final_answer_input.setFocus()
     
     def reset_score(self):
         """Reset score to zero"""
