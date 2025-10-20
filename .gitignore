@@ -2,3 +2,4 @@
 cache_html/
 *.sqlite3.bak
 __pycache__/
+jarchive.sqlite3.bak
