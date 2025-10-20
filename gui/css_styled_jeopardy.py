@@ -352,8 +352,13 @@ class AuthenticJeopardyGUI(QMainWindow):
                             bg_color = self.colors['answered']
                             enabled = False
                         else:
-                            btn_text = f"${clue_value or value}"
-                            bg_color = self.colors['jeopardy_blue']  # Hide Daily Double - all clues look the same!
+                            # If this is a Daily Double, DON'T reveal the stored wager from the archive.
+                            # Show the standard board value instead and pass the standard value into the clue handler.
+                            if is_dd:
+                                btn_text = f"${value}"
+                            else:
+                                btn_text = f"${clue_value or value}"
+                            bg_color = self.colors['jeopardy_blue']
                             enabled = True
                         
                         money_btn = QPushButton(btn_text)
@@ -385,8 +390,10 @@ class AuthenticJeopardyGUI(QMainWindow):
                         
                         if enabled:
                             # Use partial to avoid lambda closure issues
+                            # For Daily Double, pass the board's canonical value (so we don't reveal an archive wager)
+                            passed_value = value if is_dd else (clue_value or value)
                             money_btn.clicked.connect(
-                                partial(self.handle_clue_click, clue_id, question, answer, clue_value or value, is_dd, cat_name)
+                                partial(self.handle_clue_click, clue_id, question, answer, passed_value, is_dd, cat_name)
                             )
                         
                         board_layout.addWidget(money_btn, row, col)
@@ -423,43 +430,53 @@ class AuthenticJeopardyGUI(QMainWindow):
         # Handle Daily Double wagering BEFORE showing anything
         final_value = value
         if is_daily_double:
-            # Show Daily Double screen first - keep it secret!
+            # Let the player choose their wager without revealing the archive's stored wager.
             wager_dialog = QDialog(self)
             wager_dialog.setWindowTitle("Daily Double!")
             wager_dialog.setModal(True)
-            wager_dialog.resize(400, 200)
-            
+            wager_dialog.resize(480, 220)
+
             layout = QVBoxLayout(wager_dialog)
-            
+
             # Daily Double announcement
             dd_label = QLabel("DAILY DOUBLE!")
             dd_label.setAlignment(Qt.AlignCenter)
-            dd_label.setFont(QFont("Arial", 24, QFont.Bold))
-            dd_label.setStyleSheet(f"color: {self.colors['daily_double']}; padding: 20px;")
+            dd_label.setFont(QFont("Arial", 28, QFont.Bold))
+            dd_label.setStyleSheet(f"color: {self.colors['daily_double']}; padding: 10px;")
             layout.addWidget(dd_label)
-            
-            # Wager input
-            wager_label = QLabel(f"Enter your wager (minimum ${value}):")
+
+            # Wager input (player chooses)
+            # Minimum $5 to allow small wagers; maximum is player's current score or a fallback of $5000
+            min_wager = 5
+            max_wager = max(self.score if self.score > 0 else 5000, value)
+
+            wager_label = QLabel(f"Enter your wager (minimum ${min_wager}):")
             wager_label.setAlignment(Qt.AlignCenter)
             layout.addWidget(wager_label)
-            
+
             wager_input = QSpinBox()
-            wager_input.setMinimum(value)
-            wager_input.setMaximum(max(self.score if self.score > 0 else 1000, value))
-            wager_input.setValue(value)
+            wager_input.setMinimum(min_wager)
+            wager_input.setMaximum(max_wager)
+            # Default to a reasonable amount: min of player's score or the board value
+            default_wager = min(max(min_wager, self.score), max_wager) if self.score > 0 else value
+            wager_input.setValue(default_wager)
             wager_input.setAlignment(Qt.AlignCenter)
             layout.addWidget(wager_input)
-            
+
             # Buttons
             button_layout = QHBoxLayout()
             ok_btn = QPushButton("Continue")
             ok_btn.clicked.connect(wager_dialog.accept)
+            cancel_btn = QPushButton("Cancel")
+            cancel_btn.clicked.connect(wager_dialog.reject)
             button_layout.addWidget(ok_btn)
+            button_layout.addWidget(cancel_btn)
             layout.addLayout(button_layout)
-            
+
             if wager_dialog.exec() == QDialog.Accepted:
                 final_value = wager_input.value()
             else:
+                # If player cancels, default to board value (no reveal)
                 final_value = value
         
         # Store clue data
