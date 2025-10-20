@@ -1,0 +1,4 @@
+.venv/
+cache_html/
+*.sqlite3.bak
+__pycache__/
