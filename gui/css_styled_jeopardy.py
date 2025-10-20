@@ -10,6 +10,7 @@ import re
 from pathlib import Path
 from functools import partial
 import pygame
+import subprocess
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                                QHBoxLayout, QGridLayout, QPushButton, QLabel, 
                                QLineEdit, QSpinBox, QMessageBox, QTextEdit, QStackedWidget, QDialog)
@@ -704,7 +705,12 @@ class AuthenticJeopardyGUI(QMainWindow):
             """)
             
             game = cursor.fetchone()
-            
+
+            # If no complete games, try a fallback: any show in the DB
+            if not game:
+                cursor.execute("SELECT id, show_number FROM shows ORDER BY RANDOM() LIMIT 1")
+                game = cursor.fetchone()
+
             if game:
                 self.current_game_id, show_num = game
                 # Calculate approximate year based on show number
@@ -716,6 +722,25 @@ class AuthenticJeopardyGUI(QMainWindow):
                 self.show_board()
                 print(f"Loaded complete game: Show #{show_num} from ~{approx_year}")
             else:
+                # If there are no shows in DB at all, attempt to auto-run scraper once
+                conn.close()
+                conn = sqlite3.connect(self.db_path)
+                cur2 = conn.cursor()
+                cur2.execute("SELECT COUNT(*) FROM shows")
+                total_shows = cur2.fetchone()[0]
+                conn.close()
+
+                if total_shows == 0:
+                    QMessageBox.information(self, "Info", "No shows in DB — running scraper to fetch one random game now.")
+                    try:
+                        scraper = Path(__file__).parent.parent / 'scrape_jarchive.py'
+                        if scraper.exists():
+                            subprocess.run([sys.executable, str(scraper)], check=True)
+                            # Try loading again after scraper
+                            return self.load_random_game()
+                    except Exception as e:
+                        print('Auto-scrape failed:', e)
+
                 QMessageBox.critical(self, "Error", "No complete games found! Run the scraper to get more data.")
             
             conn.close()
@@ -787,6 +812,17 @@ class AuthenticJeopardyGUI(QMainWindow):
         self.score_label.setText(f"Score: ${self.score:,}")
 
 def main():
+    # Ensure at least one game exists by running the single-random-game scraper
+    try:
+        scraper = Path(__file__).parent.parent / 'scrape_jarchive.py'
+        if scraper.exists():
+            print('Fetching a random game before launching GUI...')
+            subprocess.run([sys.executable, str(scraper)], check=False)
+        else:
+            print('scrape_jarchive.py not found; skipping auto-fetch')
+    except Exception as e:
+        print('Auto-fetch failed:', e)
+
     app = QApplication(sys.argv)
     window = AuthenticJeopardyGUI()
     window.show()

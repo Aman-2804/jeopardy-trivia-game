@@ -1,13 +1,13 @@
-import os, re, time, sqlite3
+import os, re, time, sqlite3, random, datetime
 from pathlib import Path
 from typing import Optional, Dict, List
 import requests
 from bs4 import BeautifulSoup
 
 BASE_GAME = "https://www.j-archive.com/showgame.php?game_id="
-BASE_SEASON = "https://www.j-archive.com/showseason.php?season=    print("🎯 Starting CONTINUE scrape: Seasons 28-41 (2011-2024)")
-    print("🔄 Will skip games already in database!")
-    print("⏱️  This will take some time for new games...")CACHE_DIR = Path("cache_html")
+BASE_SEASON = "https://www.j-archive.com/showseason.php?season="
+
+CACHE_DIR = Path("cache_html")
 CACHE_DIR.mkdir(exist_ok=True)
 
 DB_PATH = "jarchive.sqlite3"
@@ -260,26 +260,63 @@ def scrape_single_game(game_id: int):
     conn.close()
 
 
-if __name__ == "__main__":
-    # FRESH SCRAPE: ALL SEASONS FROM 2000-2024
-    # Season 17 (2000) through Season 41 (2024)
-    
-    print("🎯 Starting FRESH comprehensive scrape: 2000-2024 (Seasons 17-41)")
-    print("�️  Database cleared - starting from scratch!")
-    print("⏱️  This will take several hours! Be patient...")
-    
-    for season in range(28, 42):  # Seasons 17-41 (2000-2024)
-        print(f"\n{'='*60}")
-        print(f"🎮 SCRAPING SEASON {season}")
-        print(f"📅 Approximate year: {1983 + season}")  # Jeopardy started in 1984
-        print(f"{'='*60}")
-        
-        try:
-            scrape_season(season, limit=None)  # No limit - get all games
-            print(f"✅ COMPLETED Season {season}")
-        except Exception as e:
-            print(f"❌ ERROR in Season {season}: {e}")
-            print("⏩ Continuing with next season...")
+def scrape_random_game(start_season: int = 17, end_season: Optional[int] = None, max_attempts: int = 10):
+    """Scrape one random game from seasons start_season..end_season and upsert into DB.
+
+    This avoids scraping thousands of games; it picks a random season in the range,
+    chooses a random game from that season, parses it and inserts/updates the DB.
+    """
+    if end_season is None:
+        end_season = datetime.date.today().year - 1983  # season number for current year
+
+    conn = ensure_db()
+    attempts = 0
+    tried = set()
+
+    while attempts < max_attempts:
+        season = random.randint(start_season, end_season)
+        game_ids = get_game_ids_from_season(season)
+        if not game_ids:
+            attempts += 1
             continue
-    
-    print("\n🎉 CONTINUE SCRAPE COMPLETE! Seasons 28-41 processed.")
+
+        # pick a random game id from season
+        gid = random.choice(game_ids)
+
+        # avoid repeating same gid in this run
+        if gid in tried:
+            attempts += 1
+            continue
+        tried.add(gid)
+
+        print(f"Attempting random game {gid} from season {season} (approx year {1983+season})")
+
+        html = fetch_game_html(gid)
+        if not html:
+            print(f"Game {gid} missing (404). Trying another...")
+            attempts += 1
+            continue
+
+        try:
+            parsed = parse_game(html)
+            upsert_game(conn, gid, parsed)
+            print(f"[{gid}] Inserted/updated: Show #{parsed.get('show_number')} • {parsed.get('air_date')}")
+            conn.close()
+            return gid
+        except Exception as e:
+            print(f"Failed to parse/upsert game {gid}: {e}")
+            attempts += 1
+            continue
+
+    conn.close()
+    raise SystemExit(f"Failed to fetch a random game after {max_attempts} attempts")
+
+
+if __name__ == "__main__":
+    # Default behavior: fetch one random game from seasons 2000..present and insert into DB
+    print("🎯 Fetching one random game from 2000..present and adding it to the local DB")
+    try:
+        gid = scrape_random_game(start_season=17)
+        print(f"✅ Completed. Game id {gid} is now in the database.")
+    except SystemExit as e:
+        print(f"❌ {e}")
