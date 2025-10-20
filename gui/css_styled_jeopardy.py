@@ -79,7 +79,7 @@ class AuthenticJeopardyGUI(QMainWindow):
         """Play the title screen music"""
         if pygame.mixer.get_init():
             try:
-                music_path = Path(__file__).parent.parent / "myinstants.mp3"
+                music_path = Path(__file__).parent.parent / 'assets' / 'audio' / "myinstants.mp3"
                 if music_path.exists():
                     pygame.mixer.music.load(str(music_path))
                     pygame.mixer.music.play(-1)  # Loop indefinitely
@@ -87,7 +87,7 @@ class AuthenticJeopardyGUI(QMainWindow):
                 print(f"Error playing title music: {e}")
         """Play the title screen music"""
         try:
-            music_path = Path(__file__).parent.parent / 'myinstants.mp3'
+            music_path = Path(__file__).parent.parent / 'assets' / 'audio' / 'myinstants.mp3'
             if music_path.exists():
                 pygame.mixer.music.load(str(music_path))
                 pygame.mixer.music.play(-1)  # Loop indefinitely
@@ -98,7 +98,7 @@ class AuthenticJeopardyGUI(QMainWindow):
     def play_correct_sound(self):
         """Play sound for correct answers"""
         try:
-            sound_path = Path(__file__).parent.parent / 'Track 07.mp3'
+            sound_path = Path(__file__).parent.parent / 'assets' / 'audio' / 'track_07.mp3'
             if sound_path.exists():
                 pygame.mixer.Sound(str(sound_path)).play()
         except Exception as e:
@@ -107,7 +107,7 @@ class AuthenticJeopardyGUI(QMainWindow):
     def play_wrong_sound(self):
         """Play sound for wrong answers"""
         try:
-            sound_path = Path(__file__).parent.parent / 'wrong.mp3'
+            sound_path = Path(__file__).parent.parent / 'assets' / 'audio' / 'wrong.mp3'
             if sound_path.exists():
                 pygame.mixer.Sound(str(sound_path)).play()
         except Exception as e:
