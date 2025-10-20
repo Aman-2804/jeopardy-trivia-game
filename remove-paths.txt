@@ -1,0 +1,4 @@
+.venv/
+jarchive.sqlite3.bak*
+cache_html/
+assets/audio/
