@@ -24,8 +24,51 @@ class AuthenticJeopardyGUI(QMainWindow):
         # Start fullscreen for title screen
         self.showFullScreen()
         
-        # Initialize pygame for audio
-        pygame.mixer.init()
+        # Initialize pygame for audio (safe: don't crash if audio backend not available)
+        # Clean up old/extra audio files so only the desired theme remains
+        try:
+            audio_dir = Path(__file__).parent.parent / 'assets' / 'audio'
+            exts = ('.mp3', '.wav', '.ogg', '.flac', '.m4a', '.aac')
+            if audio_dir.exists():
+                files = [p for p in audio_dir.iterdir() if p.suffix.lower() in exts and p.is_file()]
+                if len(files) > 1:
+                    # Prefer files with 'jeopardy' or 'theme' or 'myinstants' in name
+                    # Prefer the explicit filename the user requested if present
+                    prefer = None
+                    target_name = 'jeopardy-themelq.mp3'
+                    for p in files:
+                        if p.name == target_name:
+                            prefer = p
+                            break
+                    if not prefer:
+                        for p in files:
+                            name = p.name.lower()
+                            if 'jeopardy' in name or 'theme' in name or 'myinstants' in name:
+                                prefer = p
+                                break
+
+                    if not prefer:
+                        # Keep the newest file
+                        prefer = max(files, key=lambda p: p.stat().st_mtime)
+
+                    for p in files:
+                        if p != prefer:
+                            try:
+                                p.unlink()
+                                print(f"Removed extra audio file: {p}")
+                            except Exception as e:
+                                print(f"Failed to remove {p}: {e}")
+                    print(f"Keeping audio file: {prefer}")
+
+        except Exception as e:
+            print(f"Audio cleanup failed: {e}")
+
+        try:
+            pygame.mixer.init()
+            self.audio_available = True
+        except Exception as e:
+            print(f"pygame.mixer.init() failed: {e}")
+            self.audio_available = False
         
         # Game state
         self.current_game_id = None
@@ -48,7 +91,7 @@ class AuthenticJeopardyGUI(QMainWindow):
         
         # Load and start the game immediately with theme music
         self.load_random_game()
-        self.play_title_music()
+    # Note: background music will play when the board is shown (handled in show_board)
     
     def setup_authentic_styling(self):
         """Setup Jeopardy styling to match Figma template exactly"""
@@ -77,41 +120,72 @@ class AuthenticJeopardyGUI(QMainWindow):
 
     def play_title_music(self):
         """Play the title screen music"""
-        if pygame.mixer.get_init():
+        if not getattr(self, 'audio_available', False):
+            # No audio backend available
+            print("Audio backend not available; skipping title music")
+            return
+
+        # Prefer MP3 if present, otherwise try WAV we generate
+        base = Path(__file__).parent.parent / 'assets' / 'audio'
+        candidates = [base / 'myinstants.mp3', base / 'myinstants.wav']
+        for music_path in candidates:
             try:
-                music_path = Path(__file__).parent.parent / 'assets' / 'audio' / "myinstants.mp3"
                 if music_path.exists():
                     pygame.mixer.music.load(str(music_path))
                     pygame.mixer.music.play(-1)  # Loop indefinitely
+                    print(f"Playing title music: {music_path}")
+                    return
             except Exception as e:
-                print(f"Error playing title music: {e}")
-        """Play the title screen music"""
+                print(f"Error playing title music from {music_path}: {e}")
+
+        print("No title music file found; looked for myinstants.mp3/.wav")
+
+    def start_board_music(self):
+        """Start looping board background music (safe no-op if audio unavailable)."""
+        if not getattr(self, 'audio_available', False):
+            return
+
+        base = Path(__file__).parent.parent / 'assets' / 'audio'
+        music_path = base / 'jeopardy-themelq.mp3'
+        if not music_path.exists():
+            print(f"Board music not found: {music_path}")
+            return
+
         try:
-            music_path = Path(__file__).parent.parent / 'assets' / 'audio' / 'myinstants.mp3'
-            if music_path.exists():
-                pygame.mixer.music.load(str(music_path))
-                pygame.mixer.music.play(-1)  # Loop indefinitely
+            # Avoid reloading if same music already set
+            if getattr(self, '_current_music_path', None) == str(music_path) and pygame.mixer.music.get_busy():
+                return
+
+            pygame.mixer.music.load(str(music_path))
+            pygame.mixer.music.play(-1)
+            self._current_music_path = str(music_path)
+            print(f"Board music started: {music_path}")
         except Exception as e:
-            print(f"Could not play title music: {e}")
+            print(f"Failed to start board music from {music_path}: {e}")
+
+    def stop_board_music(self):
+        """Stop the board background music if playing."""
+        if not getattr(self, 'audio_available', False):
+            return
+        try:
+            pygame.mixer.music.stop()
+            print("Board music stopped")
+        except Exception as e:
+            print(f"Failed to stop board music: {e}")
     
 
     def play_correct_sound(self):
         """Play sound for correct answers"""
-        try:
-            sound_path = Path(__file__).parent.parent / 'assets' / 'audio' / 'track_07.mp3'
-            if sound_path.exists():
-                pygame.mixer.Sound(str(sound_path)).play()
-        except Exception as e:
-            print(f"Could not play correct sound: {e}")
+        # Intentionally no-op: this app uses only the single board theme song.
+        # Correct-answer sounds are disabled to keep behavior focused on the theme.
+        return
     
     def play_wrong_sound(self):
         """Play sound for wrong answers"""
-        try:
-            sound_path = Path(__file__).parent.parent / 'assets' / 'audio' / 'wrong.mp3'
-            if sound_path.exists():
-                pygame.mixer.Sound(str(sound_path)).play()
-        except Exception as e:
-            print(f"Could not play wrong sound: {e}")
+        # Intentionally no-op: this app uses only the single board theme song.
+        # Wrong-answer sounds are disabled.
+        return
+    # Removed audio generation: this app uses only the user-provided theme in assets/audio
     
 
     def create_game_screen(self):
@@ -332,6 +406,11 @@ class AuthenticJeopardyGUI(QMainWindow):
             print(f"Error creating board: {e}")
         
         self.display_layout.addWidget(board_widget)
+        # Start looping board music when the board is visible
+        try:
+            self.start_board_music()
+        except Exception as e:
+            print(f"Could not start board music: {e}")
         
 
     
@@ -544,7 +623,11 @@ class AuthenticJeopardyGUI(QMainWindow):
         clue_layout.addLayout(button_layout)
         
         self.display_layout.addWidget(clue_widget)
-        
+        # Stop board music while showing a clue
+        try:
+            self.stop_board_music()
+        except Exception as e:
+            print(f"Could not stop board music: {e}")
         # Focus on input
         self.answer_input.setFocus()
     
@@ -634,6 +717,11 @@ class AuthenticJeopardyGUI(QMainWindow):
         """Return to the game board"""
         self.show_board()
         self.current_clue_data = None
+        # Ensure board music resumes
+        try:
+            self.start_board_music()
+        except Exception as e:
+            print(f"Could not resume board music: {e}")
     
     def mark_answered(self):
         """Mark current clue as answered"""
