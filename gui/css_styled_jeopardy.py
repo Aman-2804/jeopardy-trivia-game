@@ -378,9 +378,11 @@ class AuthenticJeopardyGUI(QMainWindow):
                                 text-align: center;
                             }}
                             QPushButton:hover:enabled {{
+                                /* Stronger darken overlay on hover so the cell visibly darkens */
                                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                    stop:0 {bg_color}, stop:1 rgba(255,255,255,0.1));
+                                    stop:0 rgba(0,0,0,0.70), stop:1 {bg_color});
                                 color: #fcd34d;
+                                border: 3px solid #000000;
                             }}
                             QPushButton:disabled {{
                                 background: {self.colors['answered']};
@@ -617,7 +619,7 @@ class AuthenticJeopardyGUI(QMainWindow):
         """)
         show_btn.clicked.connect(self.show_answer)
         
-        back_btn = QPushButton("BACK TO BOARD")
+        back_btn = QPushButton("Pass")
         back_btn.setFont(QFont("Arial", 16, QFont.Bold))
         back_btn.setStyleSheet("""
             QPushButton {
@@ -632,7 +634,7 @@ class AuthenticJeopardyGUI(QMainWindow):
                 background: #888888;
             }
         """)
-        back_btn.clicked.connect(self.back_to_board)
+        back_btn.clicked.connect(self.pass_clue)
         
         button_layout.addWidget(submit_btn)
         button_layout.addWidget(show_btn)
@@ -640,11 +642,8 @@ class AuthenticJeopardyGUI(QMainWindow):
         clue_layout.addLayout(button_layout)
         
         self.display_layout.addWidget(clue_widget)
-        # Stop board music while showing a clue
-        try:
-            self.stop_board_music()
-        except Exception as e:
-            print(f"Could not stop board music: {e}")
+        # Keep board music playing while viewing clues so the theme doesn't restart.
+        # (Final Jeopardy still stops music explicitly elsewhere.)
         # Focus on input
         self.answer_input.setFocus()
     
@@ -680,19 +679,12 @@ class AuthenticJeopardyGUI(QMainWindow):
         next_round_btn.setStyleSheet(button_style)
         next_round_btn.clicked.connect(self.next_round)
         
-        switch_btn = QPushButton("Switch Round")
-        switch_btn.setStyleSheet(button_style)
-        switch_btn.clicked.connect(self.switch_round)
-        
-        reset_btn = QPushButton("Reset Score")
-        reset_btn.setStyleSheet(button_style)
-        reset_btn.clicked.connect(self.reset_score)
+    # switch_btn removed per user request (manual round switching hidden)
         
         controls_layout.addStretch()
         controls_layout.addWidget(new_game_btn)
         controls_layout.addWidget(next_round_btn)
-        controls_layout.addWidget(switch_btn)
-        controls_layout.addWidget(reset_btn)
+    # switch_btn removed
         controls_layout.addStretch()
         
         parent_layout.addWidget(controls_widget)
@@ -739,6 +731,18 @@ class AuthenticJeopardyGUI(QMainWindow):
             self.start_board_music()
         except Exception as e:
             print(f"Could not resume board music: {e}")
+
+    def pass_clue(self):
+        """Pass on the current clue: reveal the answer, mark it answered, but don't change score."""
+        if not self.current_clue_data:
+            return
+
+        answer = self.current_clue_data.get('answer')
+        # Reveal the answer to the player but do not modify score
+        QMessageBox.information(self, "Passed", f"You passed. The correct answer was:\n\n{answer}")
+        self.mark_answered()
+        # Return to board (this clears current_clue_data and resumes music)
+        self.back_to_board()
     
     def mark_answered(self):
         """Mark current clue as answered"""
@@ -821,7 +825,7 @@ class AuthenticJeopardyGUI(QMainWindow):
                 # Calculate approximate year based on show number
                 # Show #1 aired in 1984, roughly 230 shows per year
                 approx_year = 1984 + (show_num - 1) // 230
-                self.game_info.setText(f"Show #{show_num} • ~{approx_year}")
+                self.game_info.setText(f"Game #{show_num} from {approx_year}")
                 self.current_round = 'jeopardy'  # ALWAYS start with regular Jeopardy!
                 self.answered_clues.clear()
                 self.show_board()
@@ -865,13 +869,7 @@ class AuthenticJeopardyGUI(QMainWindow):
             # Already in Final Jeopardy, maybe restart or stay
             QMessageBox.information(self, "Game Complete", "This game is complete! Start a new game to continue playing.")
     
-    def switch_round(self):
-        """Switch between Jeopardy and Double Jeopardy (for manual control)"""
-        if self.current_round in ['jeopardy', 'double']:
-            self.current_round = 'double' if self.current_round == 'jeopardy' else 'jeopardy'
-            self.show_board()
-        else:
-            QMessageBox.information(self, "Round Switch", "Cannot switch rounds during Final Jeopardy.")
+    # switch_round removed from GUI control layer per user request
     
     def show_final_jeopardy(self):
         """Show Final Jeopardy round: prompt wager, show clue, accept answer, update score."""
@@ -884,11 +882,8 @@ class AuthenticJeopardyGUI(QMainWindow):
                 widget.setParent(None)
                 widget.deleteLater()
 
-        # Stop board music during Final Jeopardy
-        try:
-            self.stop_board_music()
-        except Exception:
-            pass
+        # Do not stop board music here — keep the board theme playing during Final Jeopardy.
+        # If you want to fade or stop the music for dramatic reveal, implement a controlled fade.
 
         # Fetch Final Jeopardy clue from DB for current game
         try:
@@ -1027,10 +1022,7 @@ class AuthenticJeopardyGUI(QMainWindow):
         # Focus on input
         final_answer_input.setFocus()
     
-    def reset_score(self):
-        """Reset score to zero"""
-        self.score = 0
-        self.update_score()
+    # reset_score removed — score reset button eliminated from UI per user request
     
     def update_score(self):
         """Update score display"""
