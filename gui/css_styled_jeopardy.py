@@ -378,9 +378,9 @@ class AuthenticJeopardyGUI(QMainWindow):
                                 text-align: center;
                             }}
                             QPushButton:hover:enabled {{
-                                /* Stronger darken overlay on hover so the cell visibly darkens */
+                                /* Darken the money cell on hover to match the old behavior */
                                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                    stop:0 rgba(0,0,0,0.70), stop:1 {bg_color});
+                                    stop:0 rgba(0,0,0,0.45), stop:1 {bg_color});
                                 color: #fcd34d;
                                 border: 3px solid #000000;
                             }}
@@ -602,23 +602,6 @@ class AuthenticJeopardyGUI(QMainWindow):
         """)
         submit_btn.clicked.connect(self.submit_answer)
         
-        show_btn = QPushButton("SHOW ANSWER")
-        show_btn.setFont(QFont("Arial", 16, QFont.Bold))
-        show_btn.setStyleSheet("""
-            QPushButton {
-                background: #cc3300;
-                color: white;
-                border: 3px solid #990000;
-                border-radius: 10px;
-                padding: 15px 30px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background: #ff3300;
-            }
-        """)
-        show_btn.clicked.connect(self.show_answer)
-        
         back_btn = QPushButton("Pass")
         back_btn.setFont(QFont("Arial", 16, QFont.Bold))
         back_btn.setStyleSheet("""
@@ -637,7 +620,6 @@ class AuthenticJeopardyGUI(QMainWindow):
         back_btn.clicked.connect(self.pass_clue)
         
         button_layout.addWidget(submit_btn)
-        button_layout.addWidget(show_btn)
         button_layout.addWidget(back_btn)
         clue_layout.addLayout(button_layout)
         
@@ -679,14 +661,21 @@ class AuthenticJeopardyGUI(QMainWindow):
         next_round_btn.setStyleSheet(button_style)
         next_round_btn.clicked.connect(self.next_round)
         
-    # switch_btn removed per user request (manual round switching hidden)
+        switch_btn = QPushButton("Switch Round")
+        switch_btn.setStyleSheet(button_style)
+        switch_btn.clicked.connect(self.switch_round)
+        
+        reset_btn = QPushButton("Reset Score")
+        reset_btn.setStyleSheet(button_style)
+        reset_btn.clicked.connect(self.reset_score)
         
         controls_layout.addStretch()
-        controls_layout.addWidget(new_game_btn)
         controls_layout.addWidget(next_round_btn)
-    # switch_btn removed
+        controls_layout.addWidget(new_game_btn)
+        controls_layout.addWidget(switch_btn)
+        controls_layout.addWidget(reset_btn)
         controls_layout.addStretch()
-        
+
         parent_layout.addWidget(controls_widget)
     
     def submit_answer(self):
@@ -712,15 +701,7 @@ class AuthenticJeopardyGUI(QMainWindow):
         QMessageBox.information(self, "Result", msg)
         self.back_to_board()
     
-    def show_answer(self):
-        """Show the correct answer"""
-        if not self.current_clue_data:
-            return
-        
-        answer = self.current_clue_data['answer']
-        QMessageBox.information(self, "Answer", f"The correct answer was:\n\n{answer}")
-        self.mark_answered()
-        self.back_to_board()
+    # show_answer removed — answers are revealed only via Pass or after Submit.
     
     def back_to_board(self):
         """Return to the game board"""
@@ -869,7 +850,13 @@ class AuthenticJeopardyGUI(QMainWindow):
             # Already in Final Jeopardy, maybe restart or stay
             QMessageBox.information(self, "Game Complete", "This game is complete! Start a new game to continue playing.")
     
-    # switch_round removed from GUI control layer per user request
+    def switch_round(self):
+        """Switch between Jeopardy and Double Jeopardy (for manual control)"""
+        if self.current_round in ['jeopardy', 'double']:
+            self.current_round = 'double' if self.current_round == 'jeopardy' else 'jeopardy'
+            self.show_board()
+        else:
+            QMessageBox.information(self, "Round Switch", "Cannot switch rounds during Final Jeopardy.")
     
     def show_final_jeopardy(self):
         """Show Final Jeopardy round: prompt wager, show clue, accept answer, update score."""
@@ -1022,7 +1009,10 @@ class AuthenticJeopardyGUI(QMainWindow):
         # Focus on input
         final_answer_input.setFocus()
     
-    # reset_score removed — score reset button eliminated from UI per user request
+    def reset_score(self):
+        """Reset score to zero"""
+        self.score = 0
+        self.update_score()
     
     def update_score(self):
         """Update score display"""
