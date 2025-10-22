@@ -9,6 +9,7 @@ import random
 import re
 from pathlib import Path
 from functools import partial
+import os
 import pygame
 import subprocess
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
@@ -63,12 +64,18 @@ class AuthenticJeopardyGUI(QMainWindow):
         except Exception as e:
             print(f"Audio cleanup failed: {e}")
 
-        try:
-            pygame.mixer.init()
-            self.audio_available = True
-        except Exception as e:
-            print(f"pygame.mixer.init() failed: {e}")
+        # Allow skipping pygame audio init via NO_AUDIO_PYGAME=1 for debugging on systems
+        # where initializing audio causes crashes.
+        if os.environ.get('NO_AUDIO_PYGAME'):
+            print('Skipping pygame.mixer.init() (NO_AUDIO_PYGAME set)')
             self.audio_available = False
+        else:
+            try:
+                pygame.mixer.init()
+                self.audio_available = True
+            except Exception as e:
+                print(f"pygame.mixer.init() failed: {e}")
+                self.audio_available = False
         
         # Game state
         self.current_game_id = None
@@ -194,6 +201,7 @@ class AuthenticJeopardyGUI(QMainWindow):
         self.game_widget = game_widget
         self.setup_ui(game_widget)
         self.stacked_widget.addWidget(game_widget)
+ 
     
     def setup_ui(self, parent_widget=None):
         """Setup the main UI"""
@@ -378,10 +386,10 @@ class AuthenticJeopardyGUI(QMainWindow):
                                 text-align: center;
                             }}
                             QPushButton:hover:enabled {{
-                                /* Darken the money cell on hover to match the old behavior */
+                                /* Strong uniform dark overlay on hover so the cell clearly darkens */
                                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                    stop:0 rgba(0,0,0,0.45), stop:1 {bg_color});
-                                color: #fcd34d;
+                                    stop:0 rgba(0,0,0,0.6), stop:1 rgba(0,0,0,0.6));
+                                color: {self.colors['money_gold']};
                                 border: 3px solid #000000;
                             }}
                             QPushButton:disabled {{
@@ -661,19 +669,10 @@ class AuthenticJeopardyGUI(QMainWindow):
         next_round_btn.setStyleSheet(button_style)
         next_round_btn.clicked.connect(self.next_round)
         
-        switch_btn = QPushButton("Switch Round")
-        switch_btn.setStyleSheet(button_style)
-        switch_btn.clicked.connect(self.switch_round)
-        
-        reset_btn = QPushButton("Reset Score")
-        reset_btn.setStyleSheet(button_style)
-        reset_btn.clicked.connect(self.reset_score)
-        
+        # (switch and reset controls removed — New Game will reset score)
         controls_layout.addStretch()
         controls_layout.addWidget(next_round_btn)
         controls_layout.addWidget(new_game_btn)
-        controls_layout.addWidget(switch_btn)
-        controls_layout.addWidget(reset_btn)
         controls_layout.addStretch()
 
         parent_layout.addWidget(controls_widget)
@@ -808,6 +807,12 @@ class AuthenticJeopardyGUI(QMainWindow):
                 approx_year = 1984 + (show_num - 1) // 230
                 self.game_info.setText(f"Game #{show_num} from {approx_year}")
                 self.current_round = 'jeopardy'  # ALWAYS start with regular Jeopardy!
+                # Reset player score for a new game
+                try:
+                    self.score = 0
+                    self.update_score()
+                except Exception:
+                    pass
                 self.answered_clues.clear()
                 self.show_board()
                 print(f"Loaded complete game: Show #{show_num} from ~{approx_year}")
