@@ -125,6 +125,22 @@ class AuthenticJeopardyGUI(QMainWindow):
             'daily_double': '#FFD700'
         }
 
+    def _darken_color(self, hex_color, amount=0.35):
+        """Return a darker hex color by mixing with black by `amount` (0..1)."""
+        try:
+            c = hex_color.lstrip('#')
+            if len(c) == 3:
+                c = ''.join([ch*2 for ch in c])
+            r = int(c[0:2], 16)
+            g = int(c[2:4], 16)
+            b = int(c[4:6], 16)
+            r = max(0, int(r * (1 - amount)))
+            g = max(0, int(g * (1 - amount)))
+            b = max(0, int(b * (1 - amount)))
+            return f"#{r:02x}{g:02x}{b:02x}"
+        except Exception:
+            return hex_color
+
     def play_title_music(self):
         """Play the title screen music"""
         if not getattr(self, 'audio_available', False):
@@ -374,6 +390,7 @@ class AuthenticJeopardyGUI(QMainWindow):
                         money_btn.setEnabled(enabled)
                         
                         # Figma-style money cells - bigger bright gold text
+                        hover_color = self._darken_color(bg_color, amount=0.6)
                         money_btn.setStyleSheet(f"""
                             QPushButton {{
                                 background: {bg_color};
@@ -386,9 +403,9 @@ class AuthenticJeopardyGUI(QMainWindow):
                                 text-align: center;
                             }}
                             QPushButton:hover:enabled {{
-                                /* Strong uniform dark overlay on hover so the cell clearly darkens */
+                                /* Very strong dark overlay on hover */
                                 background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                                    stop:0 rgba(0,0,0,0.6), stop:1 rgba(0,0,0,0.6));
+                                    stop:0 rgba(0,0,0,0.8), stop:1 rgba(0,0,0,0.8));
                                 color: {self.colors['money_gold']};
                                 border: 3px solid #000000;
                             }}
