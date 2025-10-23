@@ -44,12 +44,7 @@ export default function Tile({ value, clue, score, setScore }) {
 
   if (answered) {
     return (
-      <div 
-        className="h-28 flex items-center justify-center border-2 border-black"
-        style={{
-          background: '#00094B',
-        }}
-      >
+      <div className="bg-black h-28 flex items-center justify-center border-2 border-black">
       </div>
     )
   }
@@ -57,23 +52,16 @@ export default function Tile({ value, clue, score, setScore }) {
   return (
     <>
       <motion.div
-        whileHover={{ 
-          scale: 1.02,
-          boxShadow: 'inset 0 0 20px rgba(0, 0, 0, 0.6)'
-        }}
+        whileHover={{ scale: 1.02, backgroundColor: 'rgba(0, 0, 0, 0.6)' }}
         onClick={handleClick}
-        className="h-28 flex items-center justify-center cursor-pointer border-2 border-black"
+        className="h-28 flex items-center justify-center font-bold text-4xl cursor-pointer border-2"
         style={{
-          background: '#060CE9',
-          color: '#FFCC00',
-          fontFamily: 'Georgia, "ITC Korinna", "Times New Roman", serif',
-          fontSize: '3rem',
-          fontWeight: 'bold',
-          textShadow: '0 3px 6px #010A8C',
-          boxShadow: 'inset 0 0 8px rgba(0, 49, 255, 0.3)',
+          background: 'var(--jeopardy-blue)',
+          color: 'var(--money-gold)',
+          borderColor: '#000',
         }}
       >
-        ${value.toLocaleString()}
+        ${value}
       </motion.div>
 
       <AnimatePresence>

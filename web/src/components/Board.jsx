@@ -8,34 +8,20 @@ export default function Board({ data, round, score, setScore }) {
   return (
     <div className="max-w-7xl mx-auto">
       {/* Category Headers */}
-      <div className="grid grid-cols-6 gap-[2px] mb-[2px]">
+      <div className="grid grid-cols-6 gap-2 mb-2">
         {categories.map((cat, i) => (
           <div
             key={i}
-            className="h-28 flex items-center justify-center text-center border-2 border-black"
-            style={{
-              background: '#071DE2',
-              color: '#FFCC00',
-              fontFamily: 'Georgia, "ITC Korinna", "Times New Roman", serif',
-              textShadow: '0 2px 4px #010A8C',
-              boxShadow: 'inset 0 0 8px rgba(0, 49, 255, 0.4)',
-            }}
+            className="p-4 h-32 flex items-center justify-center font-black text-center text-white uppercase"
+            style={{ background: 'var(--jeopardy-blue)' }}
           >
-            <span 
-              className="text-base font-bold uppercase leading-tight px-2"
-              style={{ 
-                letterSpacing: '0.05em',
-                fontVariant: 'small-caps'
-              }}
-            >
-              {cat.title}
-            </span>
+            <span className="text-xl leading-tight font-extrabold">{cat.title}</span>
           </div>
         ))}
       </div>
 
       {/* Clue Grid */}
-      <div className="grid grid-cols-6 gap-[2px]">
+      <div className="grid grid-cols-6 gap-2">
         {Array.from({ length: 5 }).map((_, row) =>
           categories.map((cat, col) => (
             <Tile
