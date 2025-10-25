@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import Tile from './Tile'
+import CategoryTitle from './CategoryTitle'
 
 export default function Board({ data, round, score, setScore }) {
   const categories = data.categories.slice(0, 6)
@@ -12,10 +13,15 @@ export default function Board({ data, round, score, setScore }) {
         {categories.map((cat, i) => (
           <div
             key={i}
-            className="p-4 h-32 flex items-center justify-center font-black text-center text-white uppercase"
-            style={{ background: 'var(--jeopardy-blue)' }}
+            className="p-2 h-36 flex items-center justify-center text-center"
+            style={{
+              background: 'var(--jeopardy-gradient)',
+              textShadow: '0 4px 10px rgba(0,0,0,0.7), 0 0 20px rgba(255,255,255,0.05)'
+            }}
           >
-            <span className="text-xl leading-tight font-extrabold">{cat.title}</span>
+            <CategoryTitle>
+              {cat.title}
+            </CategoryTitle>
           </div>
         ))}
       </div>
@@ -24,13 +30,14 @@ export default function Board({ data, round, score, setScore }) {
       <div className="grid grid-cols-6 gap-2">
         {Array.from({ length: 5 }).map((_, row) =>
           categories.map((cat, col) => (
-            <Tile
-              key={`${row}-${col}`}
-              value={values[row]}
-              clue={cat.clues[row]}
-              score={score}
-              setScore={setScore}
-            />
+            <div key={`${row}-${col}`} className="">
+              <Tile
+                value={values[row]}
+                clue={cat.clues[row]}
+                score={score}
+                setScore={setScore}
+              />
+            </div>
           ))
         )}
       </div>

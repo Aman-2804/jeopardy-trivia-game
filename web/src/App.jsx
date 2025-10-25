@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import Board from './components/Board'
 import Score from './components/Score'
+import AudioPlayer from './components/AudioPlayer'
 
 const API_URL = 'http://localhost:3001'
 
@@ -75,6 +76,7 @@ export default function App() {
         </div>
         <div className="flex items-center gap-4">
           <Score score={score} />
+          <AudioPlayer startOnUserGesture={false} />
           <button
             className="px-4 py-2 bg-gray-800 text-white rounded hover:bg-gray-700"
             onClick={() => {

@@ -56,12 +56,11 @@ export default function Tile({ value, clue, score, setScore }) {
         onClick={handleClick}
         className="h-28 flex items-center justify-center font-bold text-4xl cursor-pointer border-2"
         style={{
-          background: 'var(--jeopardy-blue)',
-          color: 'var(--money-gold)',
-          borderColor: '#000',
+          background: 'var(--jeopardy-gradient)',
+          borderColor: '#000'
         }}
       >
-        ${value}
+        <span className="money-value">${value}</span>
       </motion.div>
 
       <AnimatePresence>
