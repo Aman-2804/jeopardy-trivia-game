@@ -11,12 +11,6 @@ A web-based Jeopardy! trivia game that uses real historical game data from J! Ar
 - 🔄 **Multiple Rounds**: Play both Jeopardy! and Double Jeopardy! rounds
 - 📱 **Responsive Design**: Works on desktop and mobile devices
 
-## Prerequisites
-
-- Node.js (v16 or higher)
-- npm or yarn
-- SQLite3 database file (`jarchive.sqlite3`)
-
 ## Installation
 
 1. Clone the repository:
@@ -25,13 +19,14 @@ git clone https://github.com/Aman-2804/jeopardy-trivia-game.git
 cd jeopardy-trivia-game
 ```
 
-2. Navigate to the web directory:
+2. Install Python dependencies:
 ```bash
-cd web
+pip install -r requirements.txt
 ```
 
-3. Install dependencies:
+3. Navigate to the web directory and install Node.js dependencies:
 ```bash
+cd web
 npm install
 ```
 
