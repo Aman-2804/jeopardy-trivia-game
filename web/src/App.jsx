@@ -76,7 +76,7 @@ export default function App() {
         </div>
         <div className="flex items-center gap-4">
           <Score score={score} />
-          <AudioPlayer startOnUserGesture={false} />
+          <AudioPlayer />
           <button
             className="px-4 py-2 bg-gray-800 text-white rounded hover:bg-gray-700"
             onClick={() => {

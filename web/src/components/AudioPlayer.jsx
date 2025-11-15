@@ -1,50 +1,57 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect } from 'react'
 
-// AudioPlayer: loads /jeopardy-themelq.mp3 from public and starts playback
-// after the user interacts (to satisfy browser autoplay restrictions). Exposes mute/unmute.
-export default function AudioPlayer({ startOnUserGesture = true }) {
-  const audioRef = useRef(null)
-  const [muted, setMuted] = useState(false)
-
+export default function AudioPlayer() {
   useEffect(() => {
     const a = new Audio('/jeopardy-themelq.mp3')
-    a.loop = true
     a.preload = 'auto'
-    audioRef.current = a
+    a.volume = 0.5
+    let hasStarted = false
 
-    const tryAutoplay = async () => {
+    const startPlayback = async () => {
+      if (hasStarted) return
       try {
         await a.play()
-      } catch (e) {
-        // Autoplay blocked by browser — we'll rely on user gesture to unmute.
-      }
+        hasStarted = true
+      } catch (e) {}
     }
 
-    tryAutoplay()
+    startPlayback()
+
+    const startOnInteraction = () => {
+      if (!hasStarted) startPlayback()
+    }
+
+    const events = ['click', 'keydown', 'touchstart', 'mousedown']
+    events.forEach(event => {
+      document.addEventListener(event, startOnInteraction, { once: true, passive: true })
+    })
+
+    const handleEnded = () => {
+      a.currentTime = 0
+      a.play().catch(() => {})
+    }
+    
+    const handleTimeUpdate = () => {
+      if (a.duration > 0 && a.currentTime > 0 && (a.duration - a.currentTime) < 0.05) {
+        a.currentTime = 0
+      }
+    }
+    
+    a.addEventListener('ended', handleEnded)
+    a.addEventListener('timeupdate', handleTimeUpdate)
 
     return () => {
-      try { a.pause(); a.src = '' } catch (e) {}
+      try { 
+        a.pause()
+        a.src = ''
+        a.removeEventListener('ended', handleEnded)
+        a.removeEventListener('timeupdate', handleTimeUpdate)
+        events.forEach(event => {
+          document.removeEventListener(event, startOnInteraction)
+        })
+      } catch (e) {}
     }
   }, [])
 
-  const toggleMute = () => {
-    const a = audioRef.current
-    if (!a) return
-    a.muted = !a.muted
-    setMuted(a.muted)
-    // If unmuting and the audio hasn't started, try to play
-    if (!a.muted) a.play().catch(() => {})
-  }
-
-  return (
-    <div className="flex items-center">
-      <button
-        className="px-2 py-1 bg-gray-800 text-white rounded"
-        onClick={toggleMute}
-        title={muted ? 'Unmute' : 'Mute'}
-      >
-        {muted ? '🔇' : '🔊'}
-      </button>
-    </div>
-  )
+  return null
 }

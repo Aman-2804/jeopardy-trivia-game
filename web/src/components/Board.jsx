@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React from 'react'
 import Tile from './Tile'
 import CategoryTitle from './CategoryTitle'
 
@@ -30,7 +30,7 @@ export default function Board({ data, round, score, setScore }) {
       <div className="grid grid-cols-6 gap-2">
         {Array.from({ length: 5 }).map((_, row) =>
           categories.map((cat, col) => (
-            <div key={`${row}-${col}`} className="">
+            <div key={`${row}-${col}`}>
               <Tile
                 value={values[row]}
                 clue={cat.clues[row]}

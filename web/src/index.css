@@ -1,11 +1,8 @@
-/* stylelint-disable at-rule-no-unknown */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-/* stylelint-enable at-rule-no-unknown */
 
 :root {
-  --jeopardy-blue: #071277;
   --money-gold: #FDC065;
   --jeopardy-gradient: linear-gradient(135deg, #0A0F99 0%, #071277 50%, #0A0F99 100%);
 }
@@ -15,41 +12,10 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
-/* Category header styling to match Jeopardy board */
-
-.category-title {
-  /* legacy class - container for CategoryTitle component */
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.category-title-fit {
-  color: #ffffff;
-  font-family: "Arial Black", "Helvetica Neue", Arial, sans-serif;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-  text-shadow: 0 4px 10px rgba(0,0,0,0.7), 0 0 20px rgba(255,255,255,0.05);
-  line-height: 1;
-  /* allow wrapping if JS chooses a smaller two-line font size */
-  white-space: normal;
-  word-break: break-word;
-  overflow: hidden;
-  /* No ellipsis: we prefer shrinking to fit via JS */
-}
-
-/* Slightly smaller on narrow screens to help long titles fit */
-@media (max-width: 768px) {
-  .category-title { font-size: 0.85rem; }
-}
-
 .money-value {
   color: var(--money-gold);
   font-family: "Swiss 911 BT", "Swiss 921 BT", "Arial Black", Helvetica, serif;
   font-weight: 900;
-  font-size: 2.25rem; /* match text-4xl */
+  font-size: 2.25rem;
   text-shadow: 0 3px 8px rgba(0,0,0,0.7), 0 0 12px rgba(255,255,255,0.04);
 }

@@ -52,15 +52,18 @@ export default function Tile({ value, clue, score, setScore }) {
   return (
     <>
       <motion.div
-        whileHover={{ scale: 1.02, backgroundColor: 'rgba(0, 0, 0, 0.6)' }}
         onClick={handleClick}
-        className="h-28 flex items-center justify-center font-bold text-4xl cursor-pointer border-2"
+        className="h-28 flex items-center justify-center font-bold text-4xl cursor-pointer border-2 relative group"
         style={{
           background: 'var(--jeopardy-gradient)',
           borderColor: '#000'
         }}
       >
-        <span className="money-value">${value}</span>
+        <div
+          className="absolute inset-0 bg-black opacity-0 group-hover:opacity-40 transition-opacity duration-150"
+          style={{ pointerEvents: 'none' }}
+        />
+        <span className="money-value relative z-10">${value}</span>
       </motion.div>
 
       <AnimatePresence>
@@ -74,11 +77,6 @@ export default function Tile({ value, clue, score, setScore }) {
               background: 'linear-gradient(135deg, #0A0F99 0%, #071277 50%, #0A0F99 100%)',
             }}
           >
-            {/* Jeopardy watermark */}
-            <div className="absolute top-8 right-8 text-gray-400 text-2xl font-black opacity-40 tracking-wider">
-              #JEOPARDY!
-            </div>
-
             {!showResult ? (
               /* Question Display Screen */
               <motion.div
@@ -100,7 +98,7 @@ export default function Tile({ value, clue, score, setScore }) {
                     initial={{ y: 20, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
                     transition={{ delay: 0.2, duration: 0.5 }}
-                    className="text-5xl md:text-6xl lg:text-7xl font-bold leading-tight tracking-wide uppercase"
+                    className="text-3xl md:text-4xl lg:text-5xl font-bold leading-tight tracking-wide uppercase"
                     style={{ letterSpacing: '0.02em' }}
                   >
                     {clue.question}
@@ -124,7 +122,6 @@ export default function Tile({ value, clue, score, setScore }) {
                       onChange={(e) => setUserAnswer(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
                       className="w-full px-6 py-4 text-2xl text-center font-bold rounded-xl border-4 border-white bg-white text-black focus:outline-none focus:ring-4 focus:ring-yellow-400 transition-all"
-                      placeholder="Type your answer..."
                       style={{ fontFamily: 'Georgia, serif' }}
                       autoFocus
                     />
