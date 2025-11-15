@@ -89,15 +89,6 @@ jeopardy-trivia-game/
 - **Database**: SQLite3
 - **Audio**: HTML5 Audio API
 
-## Gameplay
-
-1. Click on any dollar amount tile to reveal the clue
-2. Read the question and type your answer
-3. Click "SUBMIT" to check your answer or "PASS" to skip
-4. Your score will be updated based on correct/incorrect answers
-5. Click "Next Round" to play Double Jeopardy! (after completing Jeopardy!)
-6. Click "New Game" to load a random new game
-
 ## Database Setup
 
 The game uses a SQLite database (`jarchive.sqlite3`) containing scraped Jeopardy! game data. If you need to populate or update the database, you can use the `scrape_jarchive.py` script (requires Python and the dependencies listed in `requirements.txt`).
