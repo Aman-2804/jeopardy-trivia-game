@@ -98,8 +98,14 @@ export default function Tile({ value, clue, score, setScore }) {
 
   // Helper function to compare answers, handling pluralization
   const compareAnswers = (userAns, correctAns) => {
+    // Empty answers are always incorrect
+    if (!userAns || !userAns.trim()) return false
+    
     const userNorm = normalizeAnswer(userAns)
     const correctNorm = normalizeAnswer(correctAns)
+    
+    // If normalized user answer is empty, it's incorrect
+    if (!userNorm || userNorm.length === 0) return false
     
     // Exact match
     if (userNorm === correctNorm) return true

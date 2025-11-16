@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import Board from './components/Board'
 import Score from './components/Score'
 import AudioPlayer from './components/AudioPlayer'
+import FinalJeopardy from './components/FinalJeopardy'
 
 const API_URL = 'http://localhost:3001'
 
@@ -14,6 +15,8 @@ export default function App() {
   const [score, setScore] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [finalData, setFinalData] = useState(null)
+  const [showFinal, setShowFinal] = useState(false)
 
   const loadRandomGame = async () => {
     setLoading(true)
@@ -54,6 +57,29 @@ export default function App() {
     }
   }
 
+  const loadFinalJeopardy = async () => {
+    if (!showId) return
+    setLoading(true)
+    try {
+      const response = await fetch(`${API_URL}/api/game/${showId}/final`)
+      if (!response.ok) throw new Error('Failed to load final jeopardy')
+      const finalData = await response.json()
+      setFinalData(finalData)
+      setShowFinal(true)
+    } catch (err) {
+      console.error('Error loading final jeopardy:', err)
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleFinalComplete = () => {
+    setShowFinal(false)
+    setFinalData(null)
+    loadRandomGame()
+  }
+
   useEffect(() => {
     loadRandomGame()
   }, [])
@@ -83,10 +109,13 @@ export default function App() {
             onClick={() => {
               if (round === 'jeopardy') {
                 loadDoubleJeopardy()
+              } else if (round === 'double') {
+                loadFinalJeopardy()
               }
             }}
+            disabled={showFinal}
           >
-            Next Round
+            {round === 'jeopardy' ? 'Next Round' : round === 'double' ? 'Final Jeopardy' : 'Next Round'}
           </button>
           <button
             className="px-4 py-2 bg-yellow-500 text-black rounded hover:bg-yellow-400 font-bold"
@@ -98,7 +127,16 @@ export default function App() {
       </header>
 
       <main className="flex-1 p-6 bg-black">
-        <Board data={data} round={round} score={score} setScore={setScore} />
+        {showFinal && finalData ? (
+          <FinalJeopardy 
+            finalData={finalData} 
+            score={score} 
+            setScore={setScore}
+            onComplete={handleFinalComplete}
+          />
+        ) : (
+          <Board data={data} round={round} score={score} setScore={setScore} />
+        )}
       </main>
     </div>
   )
