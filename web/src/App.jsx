@@ -19,6 +19,7 @@ export default function App() {
     setLoading(true)
     setError(null)
     try {
+      // Server will always scrape a new game (deletes old ones automatically)
       const response = await fetch(`${API_URL}/api/random-game`)
       if (!response.ok) throw new Error('Failed to load game')
       const gameData = await response.json()

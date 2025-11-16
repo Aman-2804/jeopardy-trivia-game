@@ -1,32 +1,136 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 export default function Tile({ value, clue, score, setScore }) {
   const [answered, setAnswered] = useState(false)
   const [showModal, setShowModal] = useState(false)
+  const [showWager, setShowWager] = useState(false)
+  const [wager, setWager] = useState('')
   const [userAnswer, setUserAnswer] = useState('')
   const [showResult, setShowResult] = useState(false)
   const [isCorrect, setIsCorrect] = useState(false)
+  const isDailyDouble = clue.isDailyDouble || false
+  const finalValue = isDailyDouble ? (wager ? parseInt(wager) : value) : value
+  
+  const dailyDoubleAudioRef = useRef(null)
+  const correctAudioRef = useRef(null)
+  const incorrectAudioRef = useRef(null)
+
+  useEffect(() => {
+    dailyDoubleAudioRef.current = new Audio('/daily-double.mp3')
+    correctAudioRef.current = new Audio('/correct.mp3')
+    incorrectAudioRef.current = new Audio('/incorrect.mp3')
+    
+    return () => {
+      dailyDoubleAudioRef.current?.pause()
+      correctAudioRef.current?.pause()
+      incorrectAudioRef.current?.pause()
+    }
+  }, [])
+
+  useEffect(() => {
+    if (showWager && isDailyDouble) {
+      dailyDoubleAudioRef.current?.play().catch(() => {})
+    }
+  }, [showWager, isDailyDouble])
+
+  useEffect(() => {
+    if (showResult) {
+      if (isCorrect) {
+        correctAudioRef.current?.play().catch(() => {})
+      } else if (userAnswer) {
+        // Only play incorrect sound if they submitted an answer, not if they passed
+        incorrectAudioRef.current?.play().catch(() => {})
+      }
+    }
+  }, [showResult, isCorrect, userAnswer])
 
   const handleClick = () => {
     if (!answered) {
-      setShowModal(true)
+      if (isDailyDouble) {
+        setShowWager(true)
+      } else {
+        setShowModal(true)
+      }
     }
   }
 
+  const handleWagerSubmit = () => {
+    const wagerAmount = parseInt(wager) || value
+    // Max wager is the higher of: current score or the max value for the round
+    const maxWager = Math.max(score, value)
+    // Ensure wager is between $5 and maxWager
+    const finalWager = Math.max(5, Math.min(wagerAmount, maxWager))
+    setWager(finalWager.toString())
+    setShowWager(false)
+    setShowModal(true)
+  }
+
+  // Helper function to normalize answers for comparison
+  const normalizeAnswer = (answer) => {
+    if (!answer) return ''
+    
+    // Convert to lowercase and remove punctuation
+    let normalized = answer.trim().toLowerCase().replace(/[^\w\s]/g, '')
+    
+    // Remove question prefixes (what is, what are, who is, who are, etc.)
+    const questionPrefixes = [
+      /^what\s+is\s+/i,
+      /^what\s+are\s+/i,
+      /^who\s+is\s+/i,
+      /^who\s+are\s+/i,
+      /^where\s+is\s+/i,
+      /^where\s+are\s+/i,
+      /^when\s+is\s+/i,
+      /^when\s+are\s+/i,
+      /^how\s+is\s+/i,
+      /^how\s+are\s+/i,
+      /^which\s+is\s+/i,
+      /^which\s+are\s+/i
+    ]
+    
+    for (const prefix of questionPrefixes) {
+      normalized = normalized.replace(prefix, '').trim()
+    }
+    
+    return normalized.trim()
+  }
+
+  // Helper function to compare answers, handling pluralization
+  const compareAnswers = (userAns, correctAns) => {
+    const userNorm = normalizeAnswer(userAns)
+    const correctNorm = normalizeAnswer(correctAns)
+    
+    // Exact match
+    if (userNorm === correctNorm) return true
+    
+    // Check if one contains the other
+    if (userNorm.includes(correctNorm) || correctNorm.includes(userNorm)) return true
+    
+    // Handle pluralization - remove trailing 's' and compare
+    const userSingular = userNorm.replace(/s$/, '')
+    const correctSingular = correctNorm.replace(/s$/, '')
+    
+    if (userSingular === correctNorm || userNorm === correctSingular) return true
+    if (userSingular === correctSingular && userSingular.length > 0) return true
+    
+    // Check if singular forms match when one has 's' and other doesn't
+    if (userNorm.endsWith('s') && userNorm.slice(0, -1) === correctNorm) return true
+    if (correctNorm.endsWith('s') && correctNorm.slice(0, -1) === userNorm) return true
+    
+    return false
+  }
+
   const handleSubmit = () => {
-    // Simple check - normalize and compare
-    const userNorm = userAnswer.trim().toLowerCase().replace(/[^\w\s]/g, '')
-    const correctNorm = clue.answer.toLowerCase().replace(/[^\w\s]/g, '')
-    const correct = userNorm.includes(correctNorm) || correctNorm.includes(userNorm)
+    const correct = compareAnswers(userAnswer, clue.answer)
     
     setIsCorrect(correct)
     setShowResult(true)
     
     if (correct) {
-      setScore(score + value)
+      setScore(score + finalValue)
     } else {
-      setScore(score - value)
+      setScore(score - finalValue)
     }
   }
 
@@ -38,8 +142,10 @@ export default function Tile({ value, clue, score, setScore }) {
   const closeModal = () => {
     setAnswered(true)
     setShowModal(false)
+    setShowWager(false)
     setShowResult(false)
     setUserAnswer('')
+    setWager('')
   }
 
   if (answered) {
@@ -67,6 +173,62 @@ export default function Tile({ value, clue, score, setScore }) {
       </motion.div>
 
       <AnimatePresence>
+        {showWager && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50"
+            style={{
+              background: 'linear-gradient(135deg, #0A0F99 0%, #071277 50%, #0A0F99 100%)',
+            }}
+          >
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              className="h-full w-full flex items-center justify-center px-8"
+            >
+              <div className="max-w-2xl w-full">
+                <div className="bg-yellow-500 border-8 border-yellow-300 p-12 rounded-3xl text-center shadow-2xl">
+                  <div className="text-white text-6xl font-black mb-8" style={{ fontFamily: 'Georgia, serif', textShadow: '0 4px 8px rgba(0,0,0,0.5)' }}>
+                    DAILY DOUBLE
+                  </div>
+                  <div className="text-white text-3xl font-bold mb-8" style={{ fontFamily: 'Georgia, serif' }}>
+                    Current Score: ${score}
+                  </div>
+                  <div className="bg-black bg-opacity-40 p-6 rounded-xl mb-8">
+                    <label className="block text-yellow-300 text-2xl font-bold mb-4">
+                      ENTER YOUR WAGER
+                    </label>
+                    <input
+                      type="number"
+                      value={wager}
+                      onChange={(e) => setWager(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleWagerSubmit()}
+                      className="w-full px-6 py-4 text-3xl text-center font-bold rounded-xl border-4 border-white bg-white text-black focus:outline-none focus:ring-4 focus:ring-yellow-400 transition-all"
+                      style={{ fontFamily: 'Georgia, serif' }}
+                      placeholder={`Max: $${Math.max(score, value)}`}
+                      min="5"
+                      max={Math.max(score, value)}
+                      autoFocus
+                    />
+                    <div className="text-white text-xl mt-4">
+                      Maximum wager: ${Math.max(score, value)}
+                    </div>
+                  </div>
+                  <button
+                    className="px-16 py-5 bg-white text-blue-900 rounded-2xl hover:bg-yellow-300 font-black text-2xl shadow-2xl hover:shadow-3xl transform hover:scale-110 transition-all"
+                    onClick={handleWagerSubmit}
+                    style={{ fontFamily: 'Georgia, serif' }}
+                  >
+                    CONFIRM WAGER
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
         {showModal && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -164,7 +326,7 @@ export default function Tile({ value, clue, score, setScore }) {
                           CORRECT!
                         </div>
                         <div className="text-white text-3xl font-bold" style={{ fontFamily: 'Georgia, serif' }}>
-                          You earned ${value}!
+                          You earned ${finalValue}!
                         </div>
                       </>
                     ) : (
@@ -181,7 +343,7 @@ export default function Tile({ value, clue, score, setScore }) {
                         </div>
                         {userAnswer && (
                           <div className="text-white text-3xl font-bold" style={{ fontFamily: 'Georgia, serif' }}>
-                            You lost ${value}!
+                            You lost ${finalValue}!
                           </div>
                         )}
                       </>

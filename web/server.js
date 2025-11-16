@@ -2,7 +2,11 @@ import express from 'express'
 import sqlite3 from 'sqlite3'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
+import { exec } from 'child_process'
+import { promisify } from 'util'
 import cors from 'cors'
+
+const execAsync = promisify(exec)
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -16,11 +20,67 @@ app.use(express.json())
 
 // Path to the database
 const dbPath = join(__dirname, '..', 'jarchive.sqlite3')
+const scrapeScriptPath = join(__dirname, '..', 'scrape_jarchive.py')
 
-// Get a random complete game
-app.get('/api/random-game', (req, res) => {
+// Helper function to scrape a new game
+async function scrapeNewGame() {
+  try {
+    console.log('Scraping new game...')
+    // Run from the parent directory where schema.sql and the script are located
+    const scriptDir = join(__dirname, '..')
+    const { stdout, stderr } = await execAsync(`python3 scrape_jarchive.py`, {
+      cwd: scriptDir
+    })
+    if (stderr && !stderr.includes('NotOpenSSLWarning')) {
+      console.error('Scrape script stderr:', stderr)
+    }
+    console.log('Scrape script output:', stdout)
+    return true
+  } catch (error) {
+    console.error('Error scraping game:', error)
+    console.error('Error details:', error.message)
+    throw error
+  }
+}
+
+// Helper function to delete all games from database
+function deleteAllGames(db) {
+  return new Promise((resolve, reject) => {
+    db.run('DELETE FROM shows', function(err) {
+      if (err) reject(err)
+      else {
+        console.log(`Deleted all games from database`)
+        resolve()
+      }
+    })
+  })
+}
+
+// Get a random complete game (always scrapes a new game on app load)
+app.get('/api/random-game', async (req, res) => {
   const db = new sqlite3.Database(dbPath)
   
+  try {
+    // Always delete all existing games first
+    await deleteAllGames(db)
+    db.close()
+    
+    // Scrape a new random game
+    console.log('Scraping new random game...')
+    await scrapeNewGame()
+    
+    // Reopen database after scraping and get the new game
+    const newDb = new sqlite3.Database(dbPath)
+    return getRandomGame(newDb, res)
+  } catch (error) {
+    console.error('Error in random-game endpoint:', error)
+    db.close()
+    return res.status(500).json({ error: 'Failed to load or scrape game' })
+  }
+})
+
+// Helper function to get and return a random game
+function getRandomGame(db, res) {
   // Get a random game that has complete data for both rounds
   db.get(`
     SELECT s.id, s.show_number
@@ -118,7 +178,7 @@ app.get('/api/random-game', (req, res) => {
         })
     })
   })
-})
+}
 
 // Get double jeopardy round
 app.get('/api/game/:showId/double', (req, res) => {
@@ -206,6 +266,24 @@ app.get('/api/game/:showId/final', (req, res) => {
       answer: clue.answer,
       category: clue.category
     })
+  })
+})
+
+// Delete a game from the database
+app.delete('/api/game/:showId', (req, res) => {
+  const db = new sqlite3.Database(dbPath)
+  const showId = req.params.showId
+  
+  db.run('DELETE FROM shows WHERE id = ?', [showId], function(err) {
+    if (err) {
+      console.error('Error deleting game:', err)
+      db.close()
+      return res.status(500).json({ error: 'Failed to delete game' })
+    }
+    
+    db.close()
+    console.log(`Game ${showId} deleted from database`)
+    res.json({ success: true, message: `Game ${showId} deleted` })
   })
 })
 
